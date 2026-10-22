@@ -28,10 +28,11 @@ float laythunhapthang( int thangxem , int namxem ) {
 	
 	Thunhap tn ;
 	
-	while (fscanf(f, "%02d %d %f\n", &tn.thang, &tn.nam, &tn.sotien) ==3) {
+	while (fscanf(f, "%d %d %f", &tn.thang, &tn.nam, &tn.sotien) ==3) {
         if (tn.thang == thangxem && tn.nam == namxem) {
+        	fclose(f);
             return tn.sotien;
-        }
+        } 
     }
     fclose(f);
     return 0; }
@@ -43,7 +44,7 @@ void themthunhap() {
 	printf(" Nhap tong thu nhap thang (VND):") ;
 	scanf ("%f" , &tn.sotien) ;
 	savefilethunhap(tn) ;
-	printf("=> Ðã luu thu nhap tháng %02d/%d thanh cong!\n", tn.thang, tn.nam);
+	printf("=> Ða luu thu nhap thang %02d/%d thanh cong!\n", tn.thang, tn.nam);
 }
 
 void themchitieu() { 
@@ -67,6 +68,56 @@ void themchitieu() {
 	    printf("\n Nhap tiep an 1 ko nhan 0: ");
         scanf(" %d", &chontiep ); } 
            while ( chontiep == 1) ; }
+           
+float tongchithang(int m, int y) {
+    FILE *f = fopen("chitieu.txt", "r");
+    if (f == NULL) return 0;
+    Chitieu ct;
+    float tong = 0;
+    while (fscanf(f, "%d/%d/%d %f %249[^\n]", &ct.ngay, &ct.thang, &ct.nam, &ct.sotien, ct.ghichu) == 5) {
+        if (ct.thang == m && ct.nam == y) tong += ct.sotien;
+    }
+    fclose(f);
+    return tong;
+}
+
+int namdautien() {
+    int min = 0;
+
+    FILE *f = fopen("thunhap.txt", "r");
+    if (f != NULL) {
+        Thunhap tn;
+        while (fscanf(f, "%d %d %f", &tn.thang, &tn.nam, &tn.sotien) == 3) {
+            if (min == 0 || tn.nam < min) min = tn.nam;
+        }
+        fclose(f);
+    }
+
+    f = fopen("chitieu.txt", "r");
+    if (f != NULL) {
+        Chitieu ct;
+        while (fscanf(f, "%d/%d/%d %f %249[^\n]", &ct.ngay, &ct.thang, &ct.nam, &ct.sotien, ct.ghichu) == 5) {
+            if (min == 0 || ct.nam < min) min = ct.nam;
+        }
+        fclose(f);
+    }
+
+    return min;  
+}
+
+float dutruoc(int m, int y) {
+    int namdau = namdautien();
+    if (namdau == 0 || namdau > y) return 0;     
+
+    float du = 0;
+    for (int nam = namdau; nam <= y; nam++) {
+        int thangcuoi = (nam == y) ? m - 1 : 12; 
+        for (int t = 1; t <= thangcuoi; t++) {
+            du += laythunhapthang(t, nam) - tongchithang(t, nam);
+        }
+    }
+    return du;
+}
 
 void xembaocao() { 
 int thangxem , namxem ;
@@ -90,7 +141,7 @@ int thangxem , namxem ;
 
     if (f != NULL) {
         Chitieu ct;
-        while (fscanf(f, "%d/%d/%d %f %[^\n]\n", &ct.ngay, &ct.thang, &ct.nam, &ct.sotien, ct.ghichu) == 5) {
+        while (fscanf(f, "%d/%d/%d %f %249[^\n]\n", &ct.ngay, &ct.thang, &ct.nam, &ct.sotien, ct.ghichu) == 5) {
             if (ct.thang == thangxem && ct.nam == namxem) {
                 printf("| %02d/%02d/%-10d | %-21.0f | %-26s |\n", 
                        ct.ngay, ct.thang, ct.nam, ct.sotien, ct.ghichu);
@@ -100,7 +151,9 @@ int thangxem , namxem ;
         fclose(f);
     }
 
-    float sodu = tongthu - tongchi;
+    float dutruocthang = dutruoc(thangxem, namxem);
+    float sodu = dutruocthang + tongthu - tongchi;
+    printf("| Du tu cac thang truoc: %.0f VND\n                                     |", dutruocthang);
     
     printf("+-----------------------------------------------------------------------+\n");
     printf("| Tong tieu thang %02d: %-12.0f | So du con lai: %-18.0f VND|\n",thangxem, tongchi, sodu);
@@ -136,13 +189,23 @@ void chinhsua() {
                 printf("Loi: Khong mo duoc file thunhap.txt hoac file chua ton tai!\n");
                 break;
             }
+            int n = 0, cap = 10, loi = 0 ;
+            Thunhap *tn = (Thunhap*) malloc (cap * sizeof(Thunhap)) ;
+            if (tn == NULL) {printf("Loi: khong du bo nho\n") ;
+			                fclose(f);
+							break ;}
+            
+            while (1) {
+			    if(n==cap){
+				    cap *= 2;
+					Thunhap *mr = (Thunhap*) realloc(tn, cap*sizeof(Thunhap));
+					if (mr == NULL){loi=1; break;}
+					tn=mr ;}
+				if (fscanf(f, "%d %d %f", &tn[n].thang, &tn[n].nam, &tn[n].sotien) != 3)
+                    break;                           
 
-            Thunhap tn[100]; 
-            int n = 0;
-
-            while ( n < 100 && fscanf(f, "%02d %d %f", &tn[n].thang, &tn[n].nam, &tn[n].sotien) == 3) {
                 if (tn[n].thang == thangSua && tn[n].nam == namSua) {
-                    printf("Tim thay! So tien hien tai: %.2f\n", tn[n].sotien);
+                    printf("Tim thay! So tien hien tai: %.0f\n", tn[n].sotien);
                     printf("Nhap so tien thu nhap moi: ");
                     scanf("%f", &tn[n].sotien);
                     timThay = 1;
@@ -150,18 +213,26 @@ void chinhsua() {
                 n++;
             }
             fclose(f);
-
-            if (timThay) {
+	
+            if (loi) {
+                printf("Loi: Khong du bo nho, khong luu thay doi!\n");
+            }
+            else if (timThay) {
                 f = fopen("thunhap.txt", "w"); 
+                if (f==NULL) {printf("Loi: khong ghi duoc file thunhap.txt\n"); }
+                else {
                 for (int i = 0; i < n; i++) {
-                    fprintf(f, "%02d %d %.2f\n", tn[i].thang, tn[i].nam, tn[i].sotien);
+                    fprintf(f, "%02d %d %.0f\n", tn[i].thang, tn[i].nam, tn[i].sotien);
                 }
                 fclose(f);
                 printf("=> Cap nhat khoan thu thanh cong!\n");
-            } else {
+                      } 
+			   } 
+			    else {
                 printf("=> Khong tim thay du lieu thu nhap cho thang %d/%d!\n", thangSua, namSua);
             }
-            break;
+            free(tn) ;
+			break;
         }
 		 
 		 
@@ -176,10 +247,23 @@ void chinhsua() {
 			     printf("Loi: Khong mo duoc file chitieu.txt hoac file chua ton tai!\n");
                 break;
             } 
-			Chitieu ct[1000] ;
-			int n = 0 ;
-			while (n < 1000 && fscanf(f, "%d/%d/%d %f %[^\n]\n" , &ct[n].ngay , &ct[n].thang , &ct[n].nam , &ct[n].sotien , ct[n].ghichu ) == 5 ) {
-			     if ( ct[n].ngay == ngaysua && ct[n].thang == thangsua && ct[n].nam==namsua ) {
+            
+            int n = 0, cap = 10, loi = 0 ;
+			Chitieu *ct = (Chitieu*) malloc (cap * sizeof(Chitieu));
+			if (ct == NULL) {printf("Loi: khong du bo nho") ;
+			                fclose(f);
+							break ;}
+										
+			while (1) {
+			    if(n==cap){
+				    cap *= 2;
+					Chitieu *mr2 = (Chitieu*) realloc(ct, cap*sizeof(Chitieu));
+					if (mr2 == NULL){loi=1; break;}
+					ct=mr2 ;}
+				if (fscanf(f, "%d/%d/%d %f %249[^\n]\n" , &ct[n].ngay , &ct[n].thang , &ct[n].nam , &ct[n].sotien , ct[n].ghichu ) != 5 )
+                    break;                           
+
+                if ( ct[n].ngay == ngaysua && ct[n].thang == thangsua && ct[n].nam==namsua ) {
 			     	printf("Tim thay so tien chi hien tai : %.0f\n" , ct[n].sotien) ;
 			     	printf("Nhap so tien chi moi: ");
                     scanf("%f", &ct[n].sotien);
@@ -188,21 +272,27 @@ void chinhsua() {
                 n++;
             }
             fclose(f);
-            
-            if(timthay) { 
+							
+			
+			if (loi) {
+                printf("Loi: Khong du bo nho, khong luu thay doi!\n");
+            }
+            else if(timthay) { 
 			   f = fopen("chitieu.txt", "w") ;
 			    if (f == NULL) {
                     printf("Loi: Khong ghi duoc file chitieu.txt!\n");
+                    free(ct);
                     break;
                 }
-			   for(int i = 0 ; i < n ; i++) { 
+			   else {for(int i = 0 ; i < n ; i++) { 
 			       fprintf(f ,"%02d/%02d/%d %.0f %s\n" , ct[i].ngay , ct[i].thang , ct[i].nam , ct[i].sotien , ct[i].ghichu ) ;  
 			    }
             fclose(f) ;
-            printf("=> Cap nhat khoan thu thanh cong!\n");
+            printf("=> Cap nhat khoan chi thanh cong!\n"); }
             } else {
                 printf("=> Khong tim thay du lieu thu nhap cho ngay %02d/%02d/%d!\n", ngaysua, thangsua , namsua );
             }
+            free(ct);
             break; }
             
             
@@ -217,38 +307,54 @@ void chinhsua() {
 			     printf("Loi: Khong mo duoc file chitieu.txt hoac file chua ton tai!\n");
                 break;
             } 
-			Chitieu ct[1000] ;
-			int n = 0 ;
-			while (n < 1000 && fscanf(f, "%d/%d/%d %f %249[^\n]", &ct[n].ngay , &ct[n].thang , &ct[n].nam , &ct[n].sotien , ct[n].ghichu ) == 5 ) {
+			int n = 0, cap = 10, loi = 0 ;
+			Chitieu *ct = (Chitieu*) malloc (cap * sizeof(Chitieu));
+			if (ct == NULL) {printf("Loi: khong du bo nho") ;
+			                fclose(f);
+							break ;}	
+			while (1) {
+			    if(n==cap){
+				    cap *= 2;
+					Chitieu *mr3 = (Chitieu*) realloc(ct, cap*sizeof(Chitieu));
+					if (mr3 == NULL){loi=1; break;}
+					ct=mr3 ;}
+				if (fscanf(f, "%d/%d/%d %f %249[^\n]\n" , &ct[n].ngay , &ct[n].thang , &ct[n].nam , &ct[n].sotien , ct[n].ghichu ) != 5 )
+                    break;  				
 				
-				 if ( ct[n].ngay == ngaysua && ct[n].thang == thangsua && ct[n].nam== namsua ) {
+				if ( ct[n].ngay == ngaysua && ct[n].thang == thangsua && ct[n].nam== namsua ) {
 			     	printf("Tim thay ghi chu hien tai : %s\n" , ct[n].ghichu) ;
 			     	printf("Nhap ghi chu moi: ");
-                    scanf(" %[^\n]", ct[n].ghichu);
+                    scanf(" %249[^\n]", ct[n].ghichu);
                     timthay = 1;
                 }
                 n++;
             }
             fclose(f);
             
-            if(timthay) { 
+            if (loi) {
+                printf("Loi: Khong du bo nho, khong luu thay doi!\n");
+            }
+            else if(timthay) { 
 			   f = fopen("chitieu.txt", "w") ;
 			     if (f == NULL) {
                     printf("Loi: Khong ghi duoc file chitieu.txt!\n");
+                    free(ct);
                     break;
                 }
-			   for(int i = 0 ; i < n ; i++) { 
+			     else { for(int i = 0 ; i < n ; i++) { 
 			       fprintf(f,"%02d/%02d/%d %.0f %s\n", ct[i].ngay, ct[i].thang, ct[i].nam, ct[i].sotien, ct[i].ghichu);
 			    }
             fclose(f) ;
-            printf("=> Cap nhat ghi chu thanh cong!\n");
-            } else {
-                printf("=> Khong tim thay du lieu khoan chi cho thang %02d/%02d/%d!\n", ngaysua, thangsua , namsua );
+            printf("=> Cap nhat ghi chu thanh cong!\n"); }
+            } 
+			else {
+                printf("=> Khong tim thay du lieu khoan chi cho ngay %02d/%02d/%d!\n", ngaysua, thangsua , namsua );
             }
+            free(ct) ;
             break; }
 		
         case 0 :
-            printf("\nCam on ban da su dung chuong trinh!\n");
+            printf("\nQuay lai menu chinh!\n");
             break;
 
         default:
