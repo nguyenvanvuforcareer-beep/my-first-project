@@ -11,6 +11,17 @@ void xoabodem() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 }
+void nhapghichu(char *s, int size) {
+    if (fgets(s, size, stdin) == NULL) exit(1);
+    int len = strlen(s);
+    if (len > 0 && s[len-1] == '\n') s[len-1] = '\0';   
+    else xoabodem();                                    
+
+    int i = 0;
+    while (s[i] == ' ' || s[i] == '\t') i++;             
+    if (s[i] == '\0') strcpy(s, "(khong)");              
+    else if (i > 0) memmove(s, s + i, strlen(s + i) + 1);
+}
 
 int songaytrongthang(int thang, int nam) {
     if (thang == 2) {
@@ -164,7 +175,7 @@ void themchitieu() {
         nhapsotien(&ct.sotien);
         
         printf("Nhap ghi chu : ");
-        scanf(" %249[^\n]", ct.ghichu);
+        nhapghichu(ct.ghichu, sizeof(ct.ghichu));
 
         savefilechitieu(ct);
         printf(" Ða luu khoan chi ngay %02d/%02d/%d thanh cong!\n", ct.ngay, ct.thang, ct.nam);
@@ -231,11 +242,15 @@ int thangxem , namxem ;
     nhapthangnam(&thangxem, &namxem);
 
     double tongthu = laythunhapthang(thangxem, namxem);
-    
+    double dutruocthang = dutruoc(thangxem, namxem);   
+    char dong[100]; 
     FILE *f = fopen("chitieu.txt", "r");
-
+    
     printf("\n+-----------------------------------------------------------------------+\n");
-    printf("| THANG %02d/%d  | Tong tien thu : %.0f VND  |\n", thangxem, namxem, tongthu);
+    snprintf(dong, sizeof dong, "Du tu cac thang truoc: %.0f VND", dutruocthang);
+    printf("| %-69s |\n", dong);
+    printf("+-----------------------------------------------------------------------+\n");
+    printf("| THANG %02d/%d  | Tong tien thu : %.0f VND                             |\n", thangxem, namxem, tongthu);
     printf("+-----------------------------------------------------------------------+\n");
     printf("|                          DANH MUC CHI TIEU                            |\n");
     printf("+------------------+-----------------------+----------------------------+\n");
@@ -255,16 +270,46 @@ int thangxem , namxem ;
         }
         fclose(f);
     }
-
-    double dutruocthang = dutruoc(thangxem, namxem);
     double sodu = dutruocthang + tongthu - tongchi;
-    printf("| Du tu cac thang truoc: %.0f VND\n                                     |\n", dutruocthang);
-    
     printf("+-----------------------------------------------------------------------+\n");
-    printf("| Tong tieu thang %02d: %-12.lf | So du con lai: %-18.lf VND|\n",thangxem, tongchi, sodu);
+    printf("|Tong tieu thang %02d: %-12.lf |So du con lai: %-18.lf VND|\n",thangxem, tongchi, sodu);
     printf("+-----------------------------------------------------------------------+\n");
 }
 
+int chonkhoanchi(Chitieu *ct, int n, int ngay, int thang, int nam) {
+    int dem = 0, vitri = -1;
+    for (int i = 0; i < n; i++) {
+        if (ct[i].ngay == ngay && ct[i].thang == thang && ct[i].nam == nam) {
+            dem++;
+            vitri = i;
+        }
+    }
+    if (dem == 0) return -1;
+    if (dem == 1) return vitri;
+
+    printf("Ngay %02d/%02d/%d co %d khoan chi:\n", ngay, thang, nam, dem);
+    int stt = 0;
+    for (int i = 0; i < n; i++) {
+        if (ct[i].ngay == ngay && ct[i].thang == thang && ct[i].nam == nam) {
+            stt++;
+            printf("  %d. %.0f VND - %s\n", stt, ct[i].sotien, ct[i].ghichu);
+        }
+    }
+    int chon;
+    do {
+        printf("Chon khoan can sua (1-%d): ", dem);
+        nhapso(&chon);
+    } while (chon < 1 || chon > dem);
+
+    stt = 0;
+    for (int i = 0; i < n; i++) {
+        if (ct[i].ngay == ngay && ct[i].thang == thang && ct[i].nam == nam) {
+            stt++;
+            if (stt == chon) return i;
+        }
+    }
+    return -1;
+}
 
 void chinhsua() {
 	int chonso ;
@@ -367,17 +412,19 @@ void chinhsua() {
 					ct=mr2 ;}
 				if (fscanf(f, "%d/%d/%d %lf %249[^\n]" , &ct[n].ngay , &ct[n].thang , &ct[n].nam , &ct[n].sotien , ct[n].ghichu ) != 5 )
                     break;                           
-
-                if ( ct[n].ngay == ngaysua && ct[n].thang == thangsua && ct[n].nam==namsua ) {
-			     	printf("Tim thay so tien chi hien tai : %.0f\n" , ct[n].sotien) ;
-			     	printf("Nhap so tien chi moi: ");
-                    nhapsotien(&ct[n].sotien);
-                    timthay = 1;
-                }
                 n++;
             }
             fclose(f);
-							
+
+            if (!loi) {
+                int vt = chonkhoanchi(ct, n, ngaysua, thangsua, namsua);
+                if (vt != -1) {
+                    printf("Tim thay so tien chi hien tai: %.0f\n", ct[vt].sotien);
+                    printf("Nhap so tien chi moi: ");
+                    nhapsotien(&ct[vt].sotien);
+                    timthay = 1;
+                }
+            }				
 			
 			if (loi) {
                 printf("Loi: Khong du bo nho, khong luu thay doi!\n");
@@ -425,16 +472,19 @@ void chinhsua() {
 					ct=mr3 ;}
 				if (fscanf(f, "%d/%d/%d %lf %249[^\n]" , &ct[n].ngay , &ct[n].thang , &ct[n].nam , &ct[n].sotien , ct[n].ghichu ) != 5 )
                     break;  				
-				
-				if ( ct[n].ngay == ngaysua && ct[n].thang == thangsua && ct[n].nam== namsua ) {
-			     	printf("Tim thay ghi chu hien tai : %s\n" , ct[n].ghichu) ;
-			     	printf("Nhap ghi chu moi: ");
-                    scanf(" %249[^\n]", ct[n].ghichu);
-                    timthay = 1;
-                }
                 n++;
             }
             fclose(f);
+            
+            if (!loi) {
+                int vt = chonkhoanchi(ct, n, ngaysua, thangsua, namsua);
+                if (vt != -1) {
+                    printf("Tim thay ghi chu hien tai: %s\n", ct[vt].ghichu);
+                    printf("Nhap ghi chu moi: ");
+                    nhapghichu(ct[vt].ghichu, sizeof(ct[vt].ghichu));
+                    timthay = 1;
+                }
+            }
             
             if (loi) {
                 printf("Loi: Khong du bo nho, khong luu thay doi!\n");
